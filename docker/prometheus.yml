@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'fraud-detection-engine'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          application: 'fraud-detection-engine'
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['fraud-kafka:9092']

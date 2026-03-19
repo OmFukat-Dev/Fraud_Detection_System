@@ -49,7 +49,7 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     private FraudVerdict fraudVerdict;
 
-    @Column(precision = 5, scale = 4)
+    @Column
     private Double fraudScore;
 
     @Column(columnDefinition = "TEXT")

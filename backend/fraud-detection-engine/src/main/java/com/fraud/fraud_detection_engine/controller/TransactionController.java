@@ -52,4 +52,16 @@ public class TransactionController {
         List<TransactionResponse> flagged = transactionService.getFlaggedTransactions();
         return ResponseEntity.ok(flagged);
     }
+
+    /**
+     * Get a single transaction by its unique transactionId, including full fraud analysis details.
+     * GET /api/v1/transactions/{transactionId}
+     */
+    @GetMapping("/{transactionId}")
+    public ResponseEntity<TransactionResponse> getTransactionById(
+            @PathVariable String transactionId) {
+        log.info("Fetching transaction [{}]", transactionId);
+        TransactionResponse response = transactionService.getTransactionById(transactionId);
+        return ResponseEntity.ok(response);
+    }
 }

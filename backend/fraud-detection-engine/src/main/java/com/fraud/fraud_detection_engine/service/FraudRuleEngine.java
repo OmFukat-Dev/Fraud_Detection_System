@@ -1,6 +1,7 @@
 package com.fraud.fraud_detection_engine.service;
 
 import com.fraud.fraud_detection_engine.dto.FraudAnalysisResult;
+import com.fraud.fraud_detection_engine.dto.MlPredictionResponse;
 import com.fraud.fraud_detection_engine.dto.RuleResult;
 import com.fraud.fraud_detection_engine.dto.TransactionRequest;
 import com.fraud.fraud_detection_engine.model.Transaction;
@@ -14,17 +15,17 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Core fraud detection engine that evaluates a transaction against 5 rules:
  * <ol>
- *   <li>High Amount — large transaction value</li>
- *   <li>Velocity — too many transactions in a short period</li>
- *   <li>Geo-Anomaly — impossible travel between locations</li>
- *   <li>Blacklist — blocked merchant ID or IP address</li>
- *   <li>New Device — unrecognised device for this user</li>
+ *   <li>High Amount ? large transaction value</li>
+ *   <li>Velocity ? too many transactions in a short period</li>
+ *   <li>Geo-Anomaly ? impossible travel between locations</li>
+ *   <li>Blacklist ? blocked merchant ID or IP address</li>
+ *   <li>New Device ? unrecognised device for this user</li>
  * </ol>
  *
  * <p>Each rule contributes a weighted score. The total is capped at 1.0 and
@@ -35,23 +36,24 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FraudRuleEngine {
 
-    // ─── Rule-specific services ────────────────────────────────────────────────
+    // ??? Rule-specific services ????????????????????????????????????????????????
     private final VelocityCheckService velocityCheckService;
     private final GeoCheckService geoCheckService;
     private final StringRedisTemplate redisTemplate;
+    private final MlScoringService mlScoringService;
 
-    // ─── Score weights ─────────────────────────────────────────────────────────
+    // ??? Score weights ?????????????????????????????????????????????????????????
     private static final double WEIGHT_HIGH_AMOUNT  = 0.35;
     private static final double WEIGHT_VELOCITY     = 0.30;
     private static final double WEIGHT_GEO_ANOMALY  = 0.20;
     private static final double WEIGHT_BLACKLIST     = 0.40;
     private static final double WEIGHT_NEW_DEVICE   = 0.15;
 
-    // ─── Verdict thresholds ────────────────────────────────────────────────────
+    // ??? Verdict thresholds ????????????????????????????????????????????????????
     private static final double THRESHOLD_FRAUD     = 0.70;
     private static final double THRESHOLD_REVIEW    = 0.40;
 
-    // ─── Configurable rule parameters ─────────────────────────────────────────
+    // ??? Configurable rule parameters ?????????????????????????????????????????
     @Value("${app.fraud.rules.high-amount-threshold:50000}")
     private BigDecimal highAmountThreshold;
 
@@ -64,11 +66,17 @@ public class FraudRuleEngine {
     @Value("#{'${app.fraud.rules.blacklisted-ips:}'.split(',')}")
     private List<String> blacklistedIps;
 
+    @Value("${app.ml.rule-weight:0.6}")
+    private double ruleWeight;
+
+    @Value("${app.ml.model-weight:0.4}")
+    private double modelWeight;
+
     private static final String DEVICE_KEY_PREFIX = "devices:";
 
-    // ──────────────────────────────────────────────────────────────────────────
+    // ??????????????????????????????????????????????????????????????????????????
     //  Public API
-    // ──────────────────────────────────────────────────────────────────────────
+    // ??????????????????????????????????????????????????????????????????????????
 
     /**
      * Evaluates all fraud detection rules for the given transaction and returns
@@ -79,26 +87,54 @@ public class FraudRuleEngine {
      * @return the analysis result including fraud score, verdict, and triggered rules
      */
     public FraudAnalysisResult analyze(String transactionId, TransactionRequest request) {
-        log.info("Starting fraud analysis for transaction [{}] — user [{}], amount [{}]",
+        log.info("Starting fraud analysis for transaction [{}] ? user [{}], amount [{}]",
                 transactionId, request.getUserId(), request.getAmount());
 
         List<RuleResult> results = new ArrayList<>();
 
         // Evaluate all rules
         results.add(checkHighAmount(request));
-        results.add(checkVelocity(request));
-        results.add(checkGeoAnomaly(request));
-        results.add(checkBlacklist(request));
-        results.add(checkNewDevice(request));
 
-        // Aggregate score (capped at 1.0)
+        long velocityCount = velocityCheckService.recordAndGetCount(request.getUserId());
+        results.add(checkVelocity(velocityCount));
+
+        boolean geoAnomaly = checkGeoAnomaly(request, results);
+        results.add(checkBlacklist(request));
+        RuleResult newDeviceResult = checkNewDevice(request);
+        results.add(newDeviceResult);
+
+        // Aggregate rule-based score (capped at 1.0)
         double rawScore = results.stream()
                 .mapToDouble(RuleResult::getScoreContribution)
                 .sum();
-        double fraudScore = Math.min(rawScore, 1.0);
+        double ruleScore = Math.min(rawScore, 1.0);
+
+        // ML scoring (optional)
+        Optional<MlPredictionResponse> mlResult = mlScoringService.score(
+                request,
+                velocityCount,
+                geoAnomaly,
+                newDeviceResult.isTriggered()
+        );
+
+        Double mlScore = null;
+        String mlModelVersion = null;
+        double finalScore = ruleScore;
+
+        if (mlResult.isPresent()) {
+            mlScore = clampScore(mlResult.get().getFraudProbability());
+            mlModelVersion = mlResult.get().getModelVersion();
+
+            double weightSum = ruleWeight + modelWeight;
+            if (weightSum > 0) {
+                finalScore = (ruleWeight * ruleScore + modelWeight * mlScore) / weightSum;
+            }
+        }
+
+        finalScore = clampScore(finalScore);
 
         // Determine verdict
-        Transaction.FraudVerdict verdict = determineVerdict(fraudScore);
+        Transaction.FraudVerdict verdict = determineVerdict(finalScore);
 
         // Collect triggered rule names
         String triggeredSummary = results.stream()
@@ -107,21 +143,24 @@ public class FraudRuleEngine {
                 .collect(Collectors.joining(", "));
 
         log.info("Fraud analysis complete for [{}]: score={} verdict={} triggeredRules=[{}]",
-                transactionId, String.format("%.4f", fraudScore), verdict,
+                transactionId, String.format("%.4f", finalScore), verdict,
                 triggeredSummary.isEmpty() ? "NONE" : triggeredSummary);
 
         return FraudAnalysisResult.builder()
                 .transactionId(transactionId)
-                .fraudScore(fraudScore)
+                .fraudScore(finalScore)
+                .ruleScore(ruleScore)
+                .mlScore(mlScore)
+                .mlModelVersion(mlModelVersion)
                 .fraudVerdict(verdict)
                 .ruleResults(results)
                 .triggeredRulesSummary(triggeredSummary)
                 .build();
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
+    // ??????????????????????????????????????????????????????????????????????????
     //  Private Rule Implementations
-    // ──────────────────────────────────────────────────────────────────────────
+    // ??????????????????????????????????????????????????????????????????????????
 
     /**
      * Rule 1: High Amount
@@ -139,10 +178,8 @@ public class FraudRuleEngine {
     /**
      * Rule 2: Velocity
      * Flags users who exceed the allowed transaction count within the sliding time window.
-     * Also records this transaction in the velocity counter.
      */
-    private RuleResult checkVelocity(TransactionRequest request) {
-        long count = velocityCheckService.recordAndGetCount(request.getUserId());
+    private RuleResult checkVelocity(long count) {
         boolean triggered = count > velocityMaxCount;
         if (triggered) {
             log.debug("VELOCITY rule triggered: {} txns in window (max: {})", count, velocityMaxCount);
@@ -155,16 +192,19 @@ public class FraudRuleEngine {
      * Rule 3: Geo-Anomaly (Impossible Travel)
      * Uses Haversine distance to detect physically impossible location changes.
      */
-    private RuleResult checkGeoAnomaly(TransactionRequest request) {
+    private boolean checkGeoAnomaly(TransactionRequest request, List<RuleResult> results) {
         if (request.getLatitude() == null || request.getLongitude() == null) {
-            return RuleResult.clean("GEO_ANOMALY");
+            results.add(RuleResult.clean("GEO_ANOMALY"));
+            return false;
         }
         boolean triggered = geoCheckService.isGeoAnomaly(
                 request.getUserId(), request.getLatitude(), request.getLongitude());
         if (triggered) {
-            return RuleResult.triggered("GEO_ANOMALY", WEIGHT_GEO_ANOMALY);
+            results.add(RuleResult.triggered("GEO_ANOMALY", WEIGHT_GEO_ANOMALY));
+            return true;
         }
-        return RuleResult.clean("GEO_ANOMALY");
+        results.add(RuleResult.clean("GEO_ANOMALY"));
+        return false;
     }
 
     /**
@@ -213,9 +253,9 @@ public class FraudRuleEngine {
         return RuleResult.clean("NEW_DEVICE");
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
+    // ??????????????????????????????????????????????????????????????????????????
     //  Verdict Mapping
-    // ──────────────────────────────────────────────────────────────────────────
+    // ??????????????????????????????????????????????????????????????????????????
 
     private Transaction.FraudVerdict determineVerdict(double score) {
         if (score >= THRESHOLD_FRAUD) {
@@ -225,5 +265,15 @@ public class FraudRuleEngine {
         } else {
             return Transaction.FraudVerdict.ALLOW;
         }
+    }
+
+    private double clampScore(double score) {
+        if (score < 0.0) {
+            return 0.0;
+        }
+        if (score > 1.0) {
+            return 1.0;
+        }
+        return score;
     }
 }

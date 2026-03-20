@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * Aggregated result produced by the FraudRuleEngine after evaluating all rules.
- * This is the internal DTO passed between consumer → service → alert service.
+ * This is the internal DTO passed between consumer ? service ? alert service.
  */
 @Data
 @Builder
@@ -22,17 +22,33 @@ public class FraudAnalysisResult {
     private String transactionId;
 
     /**
-     * Aggregated fraud probability score (0.0 – 1.0).
-     * Capped at 1.0 after summing all triggered rule contributions.
+     * Aggregated fraud probability score (0.0 ? 1.0).
+     * This is the final score after combining rule and ML signals.
      */
     private double fraudScore;
 
     /**
+     * Rule-based fraud probability score (0.0 ? 1.0).
+     * Used as a baseline and fallback if ML scoring is unavailable.
+     */
+    private Double ruleScore;
+
+    /**
+     * ML-based fraud probability score (0.0 ? 1.0), if available.
+     */
+    private Double mlScore;
+
+    /**
+     * Model version used for ML scoring, if available.
+     */
+    private String mlModelVersion;
+
+    /**
      * Final verdict based on the fraud score:
      * <ul>
-     *   <li>0.0 – 0.4  →  ALLOW</li>
-     *   <li>0.4 – 0.7  →  REVIEW</li>
-     *   <li>0.7 – 1.0  →  FRAUD</li>
+     *   <li>0.0 ? 0.4  ?  ALLOW</li>
+     *   <li>0.4 ? 0.7  ?  REVIEW</li>
+     *   <li>0.7 ? 1.0  ?  FRAUD</li>
      * </ul>
      */
     private Transaction.FraudVerdict fraudVerdict;

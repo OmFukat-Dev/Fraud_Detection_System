@@ -52,6 +52,12 @@ public class Transaction {
     @Column
     private Double fraudScore;
 
+    @Column
+    private Double mlScore;
+
+    @Column(length = 64)
+    private String mlModelVersion;
+
     @Column(columnDefinition = "TEXT")
     private String triggeredRules;
 

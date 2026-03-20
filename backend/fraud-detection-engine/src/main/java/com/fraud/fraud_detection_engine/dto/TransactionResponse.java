@@ -21,6 +21,8 @@ public class TransactionResponse {
     private TransactionStatus status;
     private FraudVerdict fraudVerdict;
     private Double fraudScore;
+    private Double mlScore;
+    private String mlModelVersion;
     private String triggeredRules;
     private String message;
     private LocalDateTime createdAt;

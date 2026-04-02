@@ -28,6 +28,9 @@ public class TransactionRequest {
 
     private String ipAddress;
 
+    // Optional merchant category (e.g., MCC or internal category code)
+    private String merchantCategory;
+
     @NotNull(message = "Latitude is required")
     @DecimalMin(value = "-90.0")
     @DecimalMax(value = "90.0")
@@ -38,3 +41,4 @@ public class TransactionRequest {
     @DecimalMax(value = "180.0")
     private Double longitude;
 }
+

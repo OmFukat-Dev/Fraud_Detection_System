@@ -1,0 +1,16 @@
+{
+  "modelVersion": "rf-20260323085045",
+  "featureColumns": [
+    "amount",
+    "hour_of_day",
+    "velocity_count",
+    "geo_distance_km",
+    "device_age_days",
+    "merchant_category"
+  ],
+  "labelColumn": "is_fraud",
+  "metrics": {
+    "roc_auc": 0.6276041666666666
+  },
+  "trainedAtUtc": "2026-03-23T08:50:45.215192Z"
+}

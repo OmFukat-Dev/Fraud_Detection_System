@@ -67,7 +67,7 @@ Core JPA entity saved to MySQL with all fraud-relevant fields:
 
 ---
 
-## 🔄 PHASE 2 — Kafka Consumer & Rule-Based Fraud Engine (NEXT)
+## ✅ PHASE 2 — Kafka Consumer & Rule-Based Fraud Engine (COMPLETED)
 
 ### Goal
 Build the async fraud analysis brain — consume transactions from Kafka, apply rule-based fraud scoring, update the database with results, and push alerts.
@@ -75,44 +75,44 @@ Build the async fraud analysis brain — consume transactions from Kafka, apply 
 ### Tasks
 
 #### 2.1 Kafka Consumer
-- [ ] Create `KafkaConsumerService.java` — listens on `fraud.transactions.raw`
-- [ ] Deserialize incoming `TransactionRequest` JSON
-- [ ] Pass each transaction through the fraud rule engine
+- [x] Create `KafkaConsumerService.java` — listens on `fraud.transactions.raw`
+- [x] Deserialize incoming `TransactionRequest` JSON
+- [x] Pass each transaction through the fraud rule engine
 
 #### 2.2 Rule-Based Fraud Engine
-- [ ] Create `FraudRuleEngine.java` service
-- [ ] Implement core fraud detection rules:
+- [x] Create `FraudRuleEngine.java` service
+- [x] Implement core fraud detection rules:
   - **High-amount rule** — flag transactions above a configurable threshold (e.g., ₹50,000)
   - **Velocity rule** — flag if same user makes >N transactions in X minutes (Redis-backed counter)
   - **Geo-anomaly rule** — flag impossible travel (two transactions from far locations in short time)
   - **Blacklist rule** — flag transactions from blacklisted merchant IDs or IP addresses
   - **New device rule** — flag if `deviceId` has never been seen for this user
-- [ ] Each rule returns a `RuleResult` with: rule name, triggered (true/false), score contribution
-- [ ] Aggregate scores → final `fraudScore` (0.0–1.0)
-- [ ] Determine `fraudVerdict`: 
+- [x] Each rule returns a `RuleResult` with: rule name, triggered (true/false), score contribution
+- [x] Aggregate scores → final `fraudScore` (0.0–1.0)
+- [x] Determine `fraudVerdict`: 
   - `0.0–0.4` → `ALLOW`
   - `0.4–0.7` → `REVIEW`
   - `0.7–1.0` → `FRAUD`
 
 #### 2.3 Transaction Update
-- [ ] Update `Transaction` record in MySQL with: `fraudScore`, `fraudVerdict`, `triggeredRules`, `status`
-- [ ] Create `FraudAnalysisResult` DTO for internal processing
+- [x] Update `Transaction` record in MySQL with: `fraudScore`, `fraudVerdict`, `triggeredRules`, `status`
+- [x] Create `FraudAnalysisResult` DTO for internal processing
 
 #### 2.4 Redis Velocity Tracking
-- [ ] Use Redis to store per-user transaction counts with TTL (sliding window)
-- [ ] Create `VelocityCheckService.java`
+- [x] Use Redis to store per-user transaction counts with TTL (sliding window)
+- [x] Create `VelocityCheckService.java`
 
 #### 2.5 Alert Service (Basic)
-- [ ] Create `AlertService.java` — logs high-severity fraud events
-- [ ] Publish FRAUD verdicts to a new Kafka topic: `fraud.alerts` for future notification services
+- [x] Create `AlertService.java` — logs high-severity fraud events
+- [x] Publish FRAUD verdicts to a new Kafka topic: `fraud.alerts` for future notification services
 
 #### 2.6 New API Endpoints
-- [ ] `GET /api/v1/transactions/{transactionId}` — Get single transaction with fraud details
-- [ ] `GET /api/v1/fraud/stats` — Aggregate stats (total flagged, average score, etc.)
+- [x] `GET /api/v1/transactions/{transactionId}` — Get single transaction with fraud details
+- [x] `GET /api/v1/fraud/stats` — Aggregate stats (total flagged, average score, etc.)
 
 ---
 
-## 🧠 PHASE 3 — ML-Based Fraud Scoring (AI Layer)
+## ✅ PHASE 3 — ML-Based Fraud Scoring (AI Layer) (COMPLETED)
 
 ### Goal
 Replace/augment rule-based scoring with a trained machine learning model that gives more accurate, adaptive fraud probability scores.
@@ -120,20 +120,20 @@ Replace/augment rule-based scoring with a trained machine learning model that gi
 ### Tasks
 
 #### 3.1 ML Model (Python Microservice)
-- [ ] Create `ml-service/` directory — standalone Python FastAPI service
-- [ ] Train a fraud scoring model (start with Random Forest / XGBoost on public dataset like IEEE-CIS)
-- [ ] Features: amount, time-of-day, velocity count, geo-distance, device age, merchant category
-- [ ] Expose `POST /predict` endpoint returning `{ fraudProbability: 0.85 }`
-- [ ] Containerize with Docker
+- [x] Create `ml-service/` directory — standalone Python FastAPI service
+- [x] Train a fraud scoring model (start with Random Forest / XGBoost on public dataset like IEEE-CIS)
+- [x] Features: amount, time-of-day, velocity count, geo-distance, device age, merchant category
+- [x] Expose `POST /predict` endpoint returning `{ fraudProbability: 0.85 }`
+- [x] Containerize with Docker
 
 #### 3.2 Integration with Java Backend
-- [ ] Create `MlScoringService.java` — HTTP client calling the Python ML service
-- [ ] Merge ML score with rule-based score (weighted ensemble)
-- [ ] Fallback to rule-only scoring if ML service is down (circuit breaker pattern)
+- [x] Create `MlScoringService.java` — HTTP client calling the Python ML service
+- [x] Merge ML score with rule-based score (weighted ensemble)
+- [x] Fallback to rule-only scoring if ML service is down (circuit breaker pattern)
 
 #### 3.3 Model Versioning
-- [ ] Store model version in prediction response
-- [ ] Log which model version scored each transaction
+- [x] Store model version in prediction response
+- [x] Log which model version scored each transaction
 
 ---
 
@@ -214,7 +214,33 @@ Make the system production-ready with full observability, alerting, rate limitin
 | Phase | Focus | Status |
 |---|---|---|
 | **Phase 1** | Foundation, Security, Kafka Producer, Infrastructure | ✅ DONE |
-| **Phase 2** | Kafka Consumer + Rule-Based Fraud Engine + Redis Velocity | 🔄 NEXT |
-| **Phase 3** | ML Model (Python) + AI Scoring Integration | ⏳ Planned |
+| **Phase 2** | Kafka Consumer + Rule-Based Fraud Engine + Redis Velocity | ✅ DONE |
+| **Phase 3** | ML Model (Python) + AI Scoring Integration | ✅ DONE |
 | **Phase 4** | React Frontend Dashboard + Real-time Alerts | ⏳ Planned |
 | **Phase 5** | Grafana Dashboards, CI/CD, Production Hardening | ⏳ Planned |
+
+
+Commands to run this project are :
+
+  1> Terminal 1:
+      cd /home/om_fukat/projects/fraud-detection-system/docker
+      docker compose up -d
+
+      This command will start the functioning of docker
+    
+  2> Terminal 2:
+      cd /home/om_fukat/projects/fraud-detection-system/backend/fraud-detection-engine
+      ./mvnw -DskipTests clean spring-boot:run
+
+      This command will start the functioning of backend
+
+  3> Terminal 3:
+      cd /home/om_fukat/projects/fraud-detection-system/frontend
+      npm install
+      npm run dev
+
+      This command will  start the functioning of frontend
+
+  
+
+

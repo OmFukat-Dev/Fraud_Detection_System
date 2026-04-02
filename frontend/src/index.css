@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #0d1117;
+  background: #f5f7fb;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.app-bg {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(63,140,255,0.25), transparent 60%),
+    radial-gradient(900px 500px at 90% 10%, rgba(45,212,191,0.2), transparent 60%),
+    #f5f7fb;
+}
+
+.glass {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(13,17,23,0.06);
+}

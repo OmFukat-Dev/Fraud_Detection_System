@@ -8,11 +8,20 @@ from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Fraud ML Service", version="0.1.0")
+app = FastAPI(title="Fraud ML Service", version="0.2.0")
 
 MODEL_DIR = Path(__file__).resolve().parent.parent / "model"
 MODEL_PATH = MODEL_DIR / "model.pkl"
 META_PATH = MODEL_DIR / "model_meta.json"
+
+DEFAULT_FEATURES = [
+    "amount",
+    "hour_of_day",
+    "velocity_count",
+    "geo_distance_km",
+    "device_age_days",
+    "merchant_category",
+]
 
 
 class PredictRequest(BaseModel):
@@ -21,8 +30,11 @@ class PredictRequest(BaseModel):
     hour_of_day: Optional[int] = Field(default=None, ge=0, le=23)
     velocity_count: Optional[int] = Field(default=None, ge=0)
     geo_anomaly: Optional[bool] = None
+    geo_distance_km: Optional[float] = Field(default=None, ge=0)
+    device_age_days: Optional[float] = Field(default=None, ge=0)
     is_new_device: Optional[bool] = None
     merchant_id: Optional[str] = None
+    merchant_category: Optional[str] = None
 
 
 class PredictResponse(BaseModel):
@@ -31,7 +43,7 @@ class PredictResponse(BaseModel):
 
 
 class _HeuristicModel:
-    version = "heuristic-v1"
+    version = "heuristic-v2"
 
     def predict_proba(self, features: PredictRequest) -> float:
         score = 0.10
@@ -40,8 +52,12 @@ class _HeuristicModel:
             score += 0.12
         if features.geo_anomaly:
             score += 0.15
+        if features.geo_distance_km is not None and features.geo_distance_km > 500:
+            score += 0.10
         if features.is_new_device:
             score += 0.08
+        if features.device_age_days is not None and features.device_age_days < 7:
+            score += 0.05
         if features.hour_of_day is not None and (features.hour_of_day <= 5 or features.hour_of_day >= 23):
             score += 0.05
         return max(0.0, min(score, 0.99))
@@ -49,26 +65,39 @@ class _HeuristicModel:
 
 def _load_model():
     if not MODEL_PATH.exists():
-        return _HeuristicModel(), _HeuristicModel.version
+        return _HeuristicModel(), _HeuristicModel.version, DEFAULT_FEATURES
 
     try:
         import joblib  # type: ignore
     except Exception:
-        return _HeuristicModel(), _HeuristicModel.version
+        return _HeuristicModel(), _HeuristicModel.version, DEFAULT_FEATURES
 
     try:
         model = joblib.load(MODEL_PATH)
         version = _HeuristicModel.version
+        feature_columns = DEFAULT_FEATURES
         if META_PATH.exists():
             with META_PATH.open("r", encoding="utf-8") as f:
                 meta = json.load(f)
             version = meta.get("modelVersion", version)
-        return model, version
+            feature_columns = meta.get("featureColumns", feature_columns)
+        return model, version, feature_columns
     except Exception:
-        return _HeuristicModel(), _HeuristicModel.version
+        return _HeuristicModel(), _HeuristicModel.version, DEFAULT_FEATURES
 
 
-MODEL, MODEL_VERSION = _load_model()
+MODEL, MODEL_VERSION, MODEL_FEATURES = _load_model()
+
+
+def _build_feature_row(payload: PredictRequest) -> dict:
+    return {
+        "amount": payload.amount,
+        "hour_of_day": float(payload.hour_of_day or 0),
+        "velocity_count": float(payload.velocity_count or 0),
+        "geo_distance_km": float(payload.geo_distance_km or 0),
+        "device_age_days": float(payload.device_age_days or 0),
+        "merchant_category": payload.merchant_category or "unknown",
+    }
 
 
 @app.get("/health")
@@ -83,14 +112,16 @@ def predict(payload: PredictRequest):
             if isinstance(MODEL, _HeuristicModel):
                 prob = MODEL.predict_proba(payload)
             else:
-                vector = [
-                    payload.amount,
-                    float(payload.hour_of_day or 0),
-                    float(payload.velocity_count or 0),
-                    1.0 if payload.geo_anomaly else 0.0,
-                    1.0 if payload.is_new_device else 0.0,
-                ]
-                proba = MODEL.predict_proba([vector])
+                row = _build_feature_row(payload)
+                try:
+                    import pandas as pd  # type: ignore
+
+                    df = pd.DataFrame([row], columns=MODEL_FEATURES)
+                    proba = MODEL.predict_proba(df)
+                except Exception:
+                    # Fallback to dict-based input if pandas isn't available
+                    proba = MODEL.predict_proba([list(row.values())])
+
                 prob = float(proba[0][1]) if len(proba[0]) > 1 else float(proba[0][0])
         else:
             prob = _HeuristicModel().predict_proba(payload)
@@ -102,4 +133,3 @@ def predict(payload: PredictRequest):
         prob = 0.10
 
     return PredictResponse(fraudProbability=prob, modelVersion=MODEL_VERSION)
-

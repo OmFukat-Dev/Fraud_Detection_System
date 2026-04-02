@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter;
  *   <li>The Haversine distance exceeds {@code geoAnomalyDistanceKm}, AND</li>
  *   <li>The time elapsed since the last transaction is less than {@code geoAnomalyTimeMinutes}.</li>
  * </ul>
- * This catches "impossible travel" — e.g. two transactions 600 km apart within 10 minutes.
+ * This catches impossible travel -- e.g. two transactions 600 km apart within 10 minutes.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,19 +38,16 @@ public class GeoCheckService {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     /**
-     * Checks whether the current transaction constitutes an impossible-travel anomaly,
-     * then updates Redis with the current location.
-     *
-     * @param userId    the user making the transaction
-     * @param latitude  current transaction latitude
-     * @param longitude current transaction longitude
-     * @return true if an impossible-travel anomaly is detected
+     * Checks geo distance and returns a detailed result while updating Redis
+     * with the current location.
      */
-    public boolean isGeoAnomaly(String userId, double latitude, double longitude) {
+    public GeoCheckResult checkGeo(String userId, double latitude, double longitude) {
         String key = GEO_KEY_PREFIX + userId;
         try {
             String stored = redisTemplate.opsForValue().get(key);
             boolean anomaly = false;
+            double distanceKm = 0.0;
+            long minutesElapsed = -1L;
 
             if (stored != null) {
                 String[] parts = stored.split(",");
@@ -59,8 +56,8 @@ public class GeoCheckService {
                     double lastLon = Double.parseDouble(parts[1]);
                     LocalDateTime lastTime = LocalDateTime.parse(parts[2], FORMATTER);
 
-                    double distanceKm = haversineDistanceKm(lastLat, lastLon, latitude, longitude);
-                    long minutesElapsed = Duration.between(lastTime, LocalDateTime.now()).toMinutes();
+                    distanceKm = haversineDistanceKm(lastLat, lastLon, latitude, longitude);
+                    minutesElapsed = Duration.between(lastTime, LocalDateTime.now()).toMinutes();
 
                     log.debug("Geo check for user [{}]: distance={}km, elapsed={}min (thresholds: {}km / {}min)",
                             userId, String.format("%.1f", distanceKm), minutesElapsed,
@@ -76,15 +73,22 @@ public class GeoCheckService {
 
             // Update stored location with current position and timestamp
             String newValue = latitude + "," + longitude + "," + LocalDateTime.now().format(FORMATTER);
-            // Keep the geo entry for 24 hours (a transaction wouldn't matter beyond that)
+            // Keep the geo entry for 24 hours (a transaction would not matter beyond that)
             redisTemplate.opsForValue().set(key, newValue, Duration.ofHours(24));
 
-            return anomaly;
+            return new GeoCheckResult(anomaly, distanceKm, minutesElapsed);
 
         } catch (Exception e) {
             log.warn("Redis geo check failed for user [{}]: {}. Skipping geo rule.", userId, e.getMessage());
-            return false;
+            return new GeoCheckResult(false, 0.0, -1L);
         }
+    }
+
+    /**
+     * Backwards-compatible helper that returns only anomaly flag.
+     */
+    public boolean isGeoAnomaly(String userId, double latitude, double longitude) {
+        return checkGeo(userId, latitude, longitude).isAnomaly();
     }
 
     /**
@@ -105,5 +109,29 @@ public class GeoCheckService {
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return EARTH_RADIUS_KM * c;
+    }
+
+    public static class GeoCheckResult {
+        private final boolean anomaly;
+        private final double distanceKm;
+        private final long minutesElapsed;
+
+        public GeoCheckResult(boolean anomaly, double distanceKm, long minutesElapsed) {
+            this.anomaly = anomaly;
+            this.distanceKm = distanceKm;
+            this.minutesElapsed = minutesElapsed;
+        }
+
+        public boolean isAnomaly() {
+            return anomaly;
+        }
+
+        public double getDistanceKm() {
+            return distanceKm;
+        }
+
+        public long getMinutesElapsed() {
+            return minutesElapsed;
+        }
     }
 }

@@ -34,39 +34,6 @@ public class KafkaConsumerService {
     private final TransactionService transactionService;
     private final AlertService alertService;
 
-    /**
-     * Consumes a transaction event from {@code fraud.transactions.raw} and
-     * runs the complete fraud analysis pipeline.
-     *
-     * @param request   the deserialized transaction payload
-     * @param topic     the Kafka topic name (injected from message headers)
-     * @param partition the partition this message was read from
-     * @param offset    the message offset within the partition
-     */
-    @KafkaListener(
-            topics = "${app.kafka.topic.transactions}",
-            groupId = "${spring.kafka.consumer.group-id}",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
-    public void consumeTransaction(
-            @Payload TransactionRequest request,
-            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
-            @Header(KafkaHeaders.OFFSET) long offset) {
-
-        log.info("Consumed transaction from topic [{}] partition [{}] offset [{}] — userId={}",
-                topic, partition, offset, request.getUserId());
-
-        // We need the transactionId, but TransactionRequest does not carry it
-        // because the ID was generated during save. We retrieve it from the DB
-        // via a dedicated lookup after the initial save.
-        // For the consumer, we rely on the Kafka message key (= transactionId)
-        // which was set by KafkaProducerService.publishTransaction(transactionId, request).
-        // However @Header(KafkaHeaders.RECEIVED_KEY) needs to be added for that.
-        // As a robust fallback we pass the payload directly and let the rule engine
-        // use a generated placeholder that gets reconciled during updateTransactionWithFraudResult.
-        processTransaction(request);
-    }
 
     /**
      * Overloaded listener that also receives the message key (= transactionId)
@@ -74,7 +41,7 @@ public class KafkaConsumerService {
      */
     @KafkaListener(
             topics = "${app.kafka.topic.transactions}",
-            groupId = "${spring.kafka.consumer.group-id}-keyed",
+            groupId = "${spring.kafka.consumer.group-id}",
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void consumeTransactionWithKey(
@@ -104,26 +71,4 @@ public class KafkaConsumerService {
         }
     }
 
-    /**
-     * Fallback: processes transactions where the key could not be extracted.
-     * Looks up the most recent PENDING transaction for this user as a best-effort match.
-     */
-    private void processTransaction(TransactionRequest request) {
-        log.warn("Processing transaction without key for user [{}] — attempting best-effort lookup",
-                request.getUserId());
-        try {
-            // Try to find the most recent pending transaction for this user
-            String transactionId = transactionService.getLatestPendingTransactionId(request.getUserId());
-            if (transactionId != null) {
-                FraudAnalysisResult result = fraudRuleEngine.analyze(transactionId, request);
-                transactionService.updateTransactionWithFraudResult(result);
-                alertService.handleResult(result);
-            } else {
-                log.warn("No pending transaction found for user [{}] — skipping fraud analysis",
-                        request.getUserId());
-            }
-        } catch (Exception e) {
-            log.error("Fallback processing failed for user [{}]: {}", request.getUserId(), e.getMessage(), e);
-        }
-    }
 }

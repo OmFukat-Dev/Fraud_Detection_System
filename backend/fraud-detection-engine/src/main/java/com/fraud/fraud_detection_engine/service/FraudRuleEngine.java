@@ -5,6 +5,7 @@ import com.fraud.fraud_detection_engine.dto.MlPredictionResponse;
 import com.fraud.fraud_detection_engine.dto.RuleResult;
 import com.fraud.fraud_detection_engine.dto.TransactionRequest;
 import com.fraud.fraud_detection_engine.model.Transaction;
+import com.fraud.fraud_detection_engine.service.GeoCheckService.GeoCheckResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,11 +22,11 @@ import java.util.stream.Collectors;
 /**
  * Core fraud detection engine that evaluates a transaction against 5 rules:
  * <ol>
- *   <li>High Amount ? large transaction value</li>
- *   <li>Velocity ? too many transactions in a short period</li>
- *   <li>Geo-Anomaly ? impossible travel between locations</li>
- *   <li>Blacklist ? blocked merchant ID or IP address</li>
- *   <li>New Device ? unrecognised device for this user</li>
+ *   <li>High Amount -- large transaction value</li>
+ *   <li>Velocity -- too many transactions in a short period</li>
+ *   <li>Geo-Anomaly -- impossible travel between locations</li>
+ *   <li>Blacklist -- blocked merchant ID or IP address</li>
+ *   <li>New Device -- unrecognised device for this user</li>
  * </ol>
  *
  * <p>Each rule contributes a weighted score. The total is capped at 1.0 and
@@ -36,24 +37,25 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FraudRuleEngine {
 
-    // ??? Rule-specific services ????????????????????????????????????????????????
+    // Rule-specific services
     private final VelocityCheckService velocityCheckService;
     private final GeoCheckService geoCheckService;
+    private final DeviceAgeService deviceAgeService;
     private final StringRedisTemplate redisTemplate;
     private final MlScoringService mlScoringService;
 
-    // ??? Score weights ?????????????????????????????????????????????????????????
+    // Score weights
     private static final double WEIGHT_HIGH_AMOUNT  = 0.35;
     private static final double WEIGHT_VELOCITY     = 0.30;
     private static final double WEIGHT_GEO_ANOMALY  = 0.20;
     private static final double WEIGHT_BLACKLIST     = 0.40;
     private static final double WEIGHT_NEW_DEVICE   = 0.15;
 
-    // ??? Verdict thresholds ????????????????????????????????????????????????????
+    // Verdict thresholds
     private static final double THRESHOLD_FRAUD     = 0.70;
     private static final double THRESHOLD_REVIEW    = 0.40;
 
-    // ??? Configurable rule parameters ?????????????????????????????????????????
+    // Configurable rule parameters
     @Value("${app.fraud.rules.high-amount-threshold:50000}")
     private BigDecimal highAmountThreshold;
 
@@ -74,9 +76,7 @@ public class FraudRuleEngine {
 
     private static final String DEVICE_KEY_PREFIX = "devices:";
 
-    // ??????????????????????????????????????????????????????????????????????????
-    //  Public API
-    // ??????????????????????????????????????????????????????????????????????????
+    // Public API
 
     /**
      * Evaluates all fraud detection rules for the given transaction and returns
@@ -87,7 +87,7 @@ public class FraudRuleEngine {
      * @return the analysis result including fraud score, verdict, and triggered rules
      */
     public FraudAnalysisResult analyze(String transactionId, TransactionRequest request) {
-        log.info("Starting fraud analysis for transaction [{}] ? user [{}], amount [{}]",
+        log.info("Starting fraud analysis for transaction [{}] -- user [{}], amount [{}]",
                 transactionId, request.getUserId(), request.getAmount());
 
         List<RuleResult> results = new ArrayList<>();
@@ -98,10 +98,15 @@ public class FraudRuleEngine {
         long velocityCount = velocityCheckService.recordAndGetCount(request.getUserId());
         results.add(checkVelocity(velocityCount));
 
-        boolean geoAnomaly = checkGeoAnomaly(request, results);
+        GeoCheckResult geoResult = checkGeoAnomaly(request, results);
+        boolean geoAnomaly = geoResult.isAnomaly();
+        double geoDistanceKm = geoResult.getDistanceKm();
+
         results.add(checkBlacklist(request));
         RuleResult newDeviceResult = checkNewDevice(request);
         results.add(newDeviceResult);
+
+        double deviceAgeDays = deviceAgeService.getDeviceAgeDays(request.getUserId(), request.getDeviceId());
 
         // Aggregate rule-based score (capped at 1.0)
         double rawScore = results.stream()
@@ -114,6 +119,8 @@ public class FraudRuleEngine {
                 request,
                 velocityCount,
                 geoAnomaly,
+                geoDistanceKm,
+                deviceAgeDays,
                 newDeviceResult.isTriggered()
         );
 
@@ -142,8 +149,13 @@ public class FraudRuleEngine {
                 .map(RuleResult::getRuleName)
                 .collect(Collectors.joining(", "));
 
-        log.info("Fraud analysis complete for [{}]: score={} verdict={} triggeredRules=[{}]",
-                transactionId, String.format("%.4f", finalScore), verdict,
+        log.info("Fraud analysis complete for [{}]: score={} verdict={} ruleScore={} mlScore={} mlModelVersion={} triggeredRules=[{}]",
+                transactionId,
+                String.format("%.4f", finalScore),
+                verdict,
+                String.format("%.4f", ruleScore),
+                mlScore != null ? String.format("%.4f", mlScore) : "N/A",
+                mlModelVersion != null ? mlModelVersion : "RULE_ONLY",
                 triggeredSummary.isEmpty() ? "NONE" : triggeredSummary);
 
         return FraudAnalysisResult.builder()
@@ -158,9 +170,7 @@ public class FraudRuleEngine {
                 .build();
     }
 
-    // ??????????????????????????????????????????????????????????????????????????
-    //  Private Rule Implementations
-    // ??????????????????????????????????????????????????????????????????????????
+    // Private Rule Implementations
 
     /**
      * Rule 1: High Amount
@@ -192,19 +202,19 @@ public class FraudRuleEngine {
      * Rule 3: Geo-Anomaly (Impossible Travel)
      * Uses Haversine distance to detect physically impossible location changes.
      */
-    private boolean checkGeoAnomaly(TransactionRequest request, List<RuleResult> results) {
+    private GeoCheckResult checkGeoAnomaly(TransactionRequest request, List<RuleResult> results) {
         if (request.getLatitude() == null || request.getLongitude() == null) {
             results.add(RuleResult.clean("GEO_ANOMALY"));
-            return false;
+            return new GeoCheckResult(false, 0.0, -1L);
         }
-        boolean triggered = geoCheckService.isGeoAnomaly(
+        GeoCheckResult result = geoCheckService.checkGeo(
                 request.getUserId(), request.getLatitude(), request.getLongitude());
-        if (triggered) {
+        if (result.isAnomaly()) {
             results.add(RuleResult.triggered("GEO_ANOMALY", WEIGHT_GEO_ANOMALY));
-            return true;
+        } else {
+            results.add(RuleResult.clean("GEO_ANOMALY"));
         }
-        results.add(RuleResult.clean("GEO_ANOMALY"));
-        return false;
+        return result;
     }
 
     /**
@@ -228,7 +238,7 @@ public class FraudRuleEngine {
     /**
      * Rule 5: New Device
      * Flags when a deviceId has never been seen for this user before.
-     * Stores the device in a Redis Set so it becomes "known" on subsequent transactions.
+     * Stores the device in a Redis Set so it becomes known on subsequent transactions.
      */
     private RuleResult checkNewDevice(TransactionRequest request) {
         if (request.getDeviceId() == null || request.getDeviceId().isBlank()) {
@@ -253,9 +263,7 @@ public class FraudRuleEngine {
         return RuleResult.clean("NEW_DEVICE");
     }
 
-    // ??????????????????????????????????????????????????????????????????????????
-    //  Verdict Mapping
-    // ??????????????????????????????????????????????????????????????????????????
+    // Verdict Mapping
 
     private Transaction.FraudVerdict determineVerdict(double score) {
         if (score >= THRESHOLD_FRAUD) {

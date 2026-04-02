@@ -192,4 +192,46 @@ public class TransactionService {
                 .createdAt(tx.getCreatedAt())
                 .build();
     }
+
+    /**
+     * Returns last N days fraud timeseries (simple in-memory aggregation).
+     */
+    public List<com.fraud.fraud_detection_engine.dto.FraudTimeseriesPoint> getFraudTimeseries(int days) {
+        java.time.LocalDate end = java.time.LocalDate.now();
+        java.time.LocalDate start = end.minusDays(days - 1);
+
+        List<Transaction> all = transactionRepository.findAll();
+
+        java.util.Map<java.time.LocalDate, List<Transaction>> grouped =
+                all.stream()
+                        .filter(t -> t.getCreatedAt() != null)
+                        .filter(t -> {
+                            java.time.LocalDate d = t.getCreatedAt().toLocalDate();
+                            return !d.isBefore(start) && !d.isAfter(end);
+                        })
+                        .collect(java.util.stream.Collectors.groupingBy(t -> t.getCreatedAt().toLocalDate()));
+
+        List<com.fraud.fraud_detection_engine.dto.FraudTimeseriesPoint> result = new java.util.ArrayList<>();
+        for (int i = 0; i < days; i++) {
+            java.time.LocalDate day = start.plusDays(i);
+            List<Transaction> list = grouped.getOrDefault(day, java.util.Collections.emptyList());
+
+            long total = list.size();
+            long fraud = list.stream().filter(t -> t.getFraudVerdict() == Transaction.FraudVerdict.FRAUD).count();
+            long review = list.stream().filter(t -> t.getFraudVerdict() == Transaction.FraudVerdict.REVIEW).count();
+            long allow = list.stream().filter(t -> t.getFraudVerdict() == Transaction.FraudVerdict.ALLOW).count();
+            double rate = total == 0 ? 0.0 : (double) fraud / total * 100.0;
+
+            result.add(com.fraud.fraud_detection_engine.dto.FraudTimeseriesPoint.builder()
+                    .date(day.toString())
+                    .total(total)
+                    .fraud(fraud)
+                    .review(review)
+                    .allow(allow)
+                    .fraudRate(rate)
+                    .build());
+        }
+
+        return result;
+    }
 }

@@ -24,3 +24,9 @@ build/
 
 # Docker
 docker-compose.override.yml
+
+# Python
+.venv/
+ml-service/.venv/
+ml-service/data/
+

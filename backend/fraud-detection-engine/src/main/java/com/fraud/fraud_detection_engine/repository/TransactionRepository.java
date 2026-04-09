@@ -20,4 +20,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByFraudVerdictOrderByCreatedAtDesc(Transaction.FraudVerdict verdict);
 
     long countByUserIdAndCreatedAtAfter(String userId, LocalDateTime since);
+
+    long countByStatus(Transaction.TransactionStatus status);
 }

@@ -1,0 +1,103 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='900' viewBox='0 0 1600 900' role='img' aria-labelledby='title desc'>
+  <title id='title'>Fraud Detection System Flow</title>
+  <desc id='desc'>Shows how a UPI payment flows through the fraud detection system and reaches the merchant, analyst dashboard, or alerting path.</desc>
+  <defs>
+    <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#0f172a'/>
+      <stop offset='100%' stop-color='#111827'/>
+    </linearGradient>
+    <linearGradient id='card' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#1f2937'/>
+      <stop offset='100%' stop-color='#0b1220'/>
+    </linearGradient>
+    <marker id='arrow' markerWidth='12' markerHeight='12' refX='10' refY='6' orient='auto'>
+      <path d='M0,0 L12,6 L0,12 z' fill='#cbd5e1'/>
+    </marker>
+    <style>
+      .title { font: 700 42px Arial, sans-serif; fill: #f8fafc; }
+      .subtitle { font: 400 20px Arial, sans-serif; fill: #cbd5e1; }
+      .boxTitle { font: 700 22px Arial, sans-serif; fill: #f8fafc; }
+      .boxText { font: 400 16px Arial, sans-serif; fill: #cbd5e1; }
+      .small { font: 400 15px Arial, sans-serif; fill: #cbd5e1; }
+      .label { font: 700 15px Arial, sans-serif; fill: #e2e8f0; }
+      .card { fill: url(#card); stroke: #334155; stroke-width: 2; rx: 18; ry: 18; }
+      .blue { fill: #0f172a; stroke: #38bdf8; stroke-width: 2.5; rx: 18; ry: 18; }
+      .green { fill: #0f172a; stroke: #22c55e; stroke-width: 2.5; rx: 18; ry: 18; }
+      .yellow { fill: #0f172a; stroke: #f59e0b; stroke-width: 2.5; rx: 18; ry: 18; }
+      .red { fill: #0f172a; stroke: #ef4444; stroke-width: 2.5; rx: 18; ry: 18; }
+      .line { stroke: #cbd5e1; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke: #fbbf24; stroke-width: 3; stroke-dasharray: 10 8; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect x='0' y='0' width='1600' height='900' fill='url(#bg)'/>
+  <text x='800' y='70' text-anchor='middle' class='title'>Fraud Detection System Flow</text>
+  <text x='800' y='105' text-anchor='middle' class='subtitle'>The customer pays normally through the UPI app while fraud checks run in the backend.</text>
+
+  <rect x='60' y='210' width='220' height='120' class='blue'/>
+  <text x='170' y='255' text-anchor='middle' class='boxTitle'>Customer</text>
+  <text x='170' y='288' text-anchor='middle' class='boxText'>Starts a payment</text>
+  <text x='170' y='312' text-anchor='middle' class='boxText'>TV, groceries, etc.</text>
+
+  <rect x='330' y='210' width='290' height='120' class='card'/>
+  <text x='475' y='250' text-anchor='middle' class='boxTitle'>UPI App / Payment Platform</text>
+  <text x='475' y='283' text-anchor='middle' class='boxText'>Google Pay, Paytm, PhonePe</text>
+  <text x='475' y='307' text-anchor='middle' class='boxText'>Sends transaction event</text>
+
+  <rect x='690' y='185' width='360' height='170' class='green'/>
+  <text x='870' y='230' text-anchor='middle' class='boxTitle'>Fraud Detection Backend</text>
+  <text x='870' y='264' text-anchor='middle' class='boxText'>Rule engine + ML scoring</text>
+  <text x='870' y='289' text-anchor='middle' class='boxText'>Kafka, Redis, MySQL, ML service</text>
+  <text x='870' y='314' text-anchor='middle' class='boxText'>Creates final verdict</text>
+
+  <rect x='1120' y='210' width='250' height='120' class='blue'/>
+  <text x='1245' y='255' text-anchor='middle' class='boxTitle'>Merchant</text>
+  <text x='1245' y='288' text-anchor='middle' class='boxText'>Payment received</text>
+  <text x='1245' y='312' text-anchor='middle' class='boxText'>if allowed</text>
+
+  <line x1='280' y1='270' x2='330' y2='270' class='line'/>
+  <line x1='620' y1='270' x2='690' y2='270' class='line'/>
+  <line x1='1050' y1='270' x2='1120' y2='270' class='line'/>
+
+  <text x='305' y='245' text-anchor='middle' class='label'>payment request</text>
+  <text x='655' y='245' text-anchor='middle' class='label'>analysis</text>
+  <text x='1085' y='245' text-anchor='middle' class='label'>approve</text>
+
+  <rect x='690' y='430' width='205' height='110' class='green'/>
+  <text x='792' y='472' text-anchor='middle' class='boxTitle'>ALLOW</text>
+  <text x='792' y='504' text-anchor='middle' class='boxText'>Payment continues</text>
+
+  <rect x='932' y='430' width='205' height='110' class='yellow'/>
+  <text x='1035' y='472' text-anchor='middle' class='boxTitle'>REVIEW</text>
+  <text x='1035' y='504' text-anchor='middle' class='boxText'>Analyst checks it</text>
+
+  <rect x='1174' y='430' width='205' height='110' class='red'/>
+  <text x='1276' y='472' text-anchor='middle' class='boxTitle'>FRAUD</text>
+  <text x='1276' y='504' text-anchor='middle' class='boxText'>Alert or block</text>
+
+  <path d='M 870 355 C 870 388, 792 398, 792 430' class='line'/>
+  <path d='M 870 355 C 870 388, 1035 398, 1035 430' class='dashed'/>
+  <path d='M 870 355 C 870 388, 1276 398, 1276 430' class='dashed'/>
+
+  <text x='770' y='414' text-anchor='middle' class='label'>ALLOW</text>
+  <text x='1010' y='414' text-anchor='middle' class='label'>REVIEW</text>
+  <text x='1255' y='414' text-anchor='middle' class='label'>FRAUD</text>
+
+  <rect x='760' y='625' width='290' height='110' class='blue'/>
+  <text x='905' y='668' text-anchor='middle' class='boxTitle'>Analyst Dashboard</text>
+  <text x='905' y='700' text-anchor='middle' class='boxText'>Used by admins to inspect</text>
+  <text x='905' y='724' text-anchor='middle' class='boxText'>flagged transactions</text>
+
+  <rect x='1120' y='625' width='290' height='110' class='red'/>
+  <text x='1265' y='668' text-anchor='middle' class='boxTitle'>Alert / Block</text>
+  <text x='1265' y='700' text-anchor='middle' class='boxText'>Notifies operators</text>
+  <text x='1265' y='724' text-anchor='middle' class='boxText'>or stops payment</text>
+
+  <path d='M 1035 540 C 1035 585, 955 600, 905 625' class='line'/>
+  <path d='M 1276 540 C 1276 585, 1265 600, 1265 625' class='line'/>
+
+  <text x='965' y='600' text-anchor='middle' class='label'>manual review</text>
+  <text x='1280' y='600' text-anchor='middle' class='label'>notify</text>
+
+  <text x='800' y='845' text-anchor='middle' class='small'>The user keeps using the UPI app normally; the fraud system works behind the scenes and influences the decision.</text>
+</svg>

@@ -14,11 +14,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class FraudStatsResponse {
 
-    private long totalTransactions;
-    private long totalFraud;
-    private long totalReview;
-    private long totalAllow;
-    private long totalPending;
-    private double averageFraudScore;
-    private double fraudRate; // fraud / total (as %)
+ private long totalTransactions;
+ private long totalFraud;
+ private long totalReview;
+ private long totalAllow;
+ private long totalPending;
+ private long flaggedToday;
+ private double averageFraudScore;
+ private double fraudRate; // fraud / total (as %)
 }

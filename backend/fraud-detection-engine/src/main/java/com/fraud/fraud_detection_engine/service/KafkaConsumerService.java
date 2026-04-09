@@ -33,6 +33,7 @@ public class KafkaConsumerService {
     private final FraudRuleEngine fraudRuleEngine;
     private final TransactionService transactionService;
     private final AlertService alertService;
+    private final FraudMetricsService fraudMetricsService;
 
 
     /**
@@ -63,10 +64,12 @@ public class KafkaConsumerService {
 
             // 3. Fire alert if FRAUD or REVIEW
             alertService.handleResult(result);
+            fraudMetricsService.recordProcessed(result.getFraudVerdict());
 
         } catch (Exception e) {
             log.error("Error processing fraud analysis for transaction [{}]: {}",
                     transactionId, e.getMessage(), e);
+            fraudMetricsService.recordAnalysisFailure();
             // In production: route to a dead-letter topic instead of silently dropping
         }
     }

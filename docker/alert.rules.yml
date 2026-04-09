@@ -1,0 +1,33 @@
+groups:
+
+  - name: fraud-detection.rules
+    rules:
+      - alert: FraudDetectionEngineDown
+        expr: up{job="fraud-detection-engine"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: fraud-detection-engine
+        annotations:
+          summary: Fraud detection engine is down
+          description: Prometheus cannot scrape the fraud detection engine target.
+
+      - alert: FraudAnalysisBacklogHigh
+        expr: fraud_pending_transactions > 1000
+        for: 10m
+        labels:
+          severity: warning
+          service: fraud-detection-engine
+        annotations:
+          summary: Fraud analysis backlog is above 1000 transactions
+          description: More than 1000 transactions are waiting for fraud analysis. Current backlog: {{ $value }}.
+
+      - alert: FraudRateHigh
+        expr: sum(rate(fraud_transactions_processed_total[5m])) > 0 and (sum(rate(fraud_transactions_fraud_total[5m])) / sum(rate(fraud_transactions_processed_total[5m]))) > 0.20
+        for: 10m
+        labels:
+          severity: critical
+          service: fraud-detection-engine
+        annotations:
+          summary: Fraud rate is above 20%
+          description: Fraud verdicts are above 20% of processed traffic over the last 5 minutes.

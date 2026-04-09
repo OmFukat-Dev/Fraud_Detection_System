@@ -17,6 +17,7 @@ public class AlertService {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final FraudAlertBroadcaster broadcaster;
+    private final FraudMetricsService fraudMetricsService;
 
     @Value("${app.kafka.topic.alerts}")
     private String alertsTopic;
@@ -52,6 +53,7 @@ publishAlert(result);
             if (ex == null) {
                 log.info("Alert published for transaction [{}] to topic [{}]",
                         result.getTransactionId(), alertsTopic);
+                fraudMetricsService.recordAlertPublished();
             } else {
                 log.error("Failed to publish alert for transaction [{}]: {}",
                         result.getTransactionId(), ex.getMessage());

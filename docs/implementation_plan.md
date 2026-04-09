@@ -137,7 +137,7 @@ Replace/augment rule-based scoring with a trained machine learning model that gi
 
 ---
 
-## 🖥️ PHASE 4 — Frontend Dashboard (React)
+## 🖥️ PHASE 4 — Frontend Dashboard (React) (COMPLETED)
 
 ### Goal
 Build a real-time analyst dashboard to visualize transactions, fraud verdicts, and system health.
@@ -145,21 +145,21 @@ Build a real-time analyst dashboard to visualize transactions, fraud verdicts, a
 ### Tasks
 
 #### 4.1 Project Setup
-- [ ] Initialize React + Vite project in `frontend/`
-- [ ] Set up Tailwind CSS + shadcn/ui component library
-- [ ] Configure Axios for API calls with JWT interceptors
+- [x] Initialize React + Vite project in `frontend/`
+- [x] Set up Tailwind CSS + shadcn/ui component library
+- [x] Configure Axios for API calls with JWT interceptors
 
 #### 4.2 Pages & Components
-- [ ] **Login Page** — JWT auth form
-- [ ] **Dashboard Home** — Summary cards: total transactions, flagged today, avg fraud score
-- [ ] **Transactions Table** — Paginated, sortable, filterable list with fraud verdict badges
-- [ ] **Transaction Detail Page** — Full details + which rules triggered + fraud score gauge
-- [ ] **Flagged Transactions Page** — Real-time feed of FRAUD verdicts
-- [ ] **Analytics Page** — Charts: fraud rate over time, top flagged merchants, score distribution
+- [x] **Login Page** — JWT auth form
+- [x] **Dashboard Home** — Summary cards: total transactions, flagged today, avg fraud score
+- [x] **Transactions Table** — Paginated, sortable, filterable list with fraud verdict badges
+- [x] **Transaction Detail Page** — Full details + which rules triggered + fraud score gauge
+- [x] **Flagged Transactions Page** — Real-time feed of FRAUD verdicts
+- [x] **Analytics Page** — Charts: fraud rate over time, top flagged merchants, score distribution
 
 #### 4.3 Real-time Updates
-- [ ] WebSocket or Server-Sent Events (SSE) from Spring Boot for live fraud alerts
-- [ ] Toast notifications for new FRAUD verdicts
+- [x] WebSocket or Server-Sent Events (SSE) from Spring Boot for live fraud alerts
+- [x] Toast notifications for new FRAUD verdicts
 
 ---
 
@@ -171,8 +171,8 @@ Make the system production-ready with full observability, alerting, rate limitin
 ### Tasks
 
 #### 5.1 Grafana Dashboards
-- [ ] Import pre-built Kafka dashboard (JMX metrics)
-- [ ] Create custom fraud detection dashboard:
+- [x] Grafana dashboard provisioned via `docker/grafana-dashboard.json`
+- [x] Custom fraud detection dashboard panels:
   - Transactions per second
   - Fraud verdict distribution (pie chart)
   - Kafka consumer lag
@@ -180,34 +180,72 @@ Make the system production-ready with full observability, alerting, rate limitin
   - Rule engine trigger frequency
 
 #### 5.2 Alerting
-- [ ] Configure Prometheus alerting rules (`alert.rules.yml`)
-- [ ] Alert conditions: consumer lag > 1000, fraud rate > 20%, service down
-- [ ] Integrate Alertmanager → email / Slack notifications
+- [x] Configure Prometheus alerting rules (`alert.rules.yml`)
+- [x] Alert conditions: consumer lag > 1000, fraud rate > 20%, service down
+- [x] Integrate Alertmanager → email / Slack notifications
 
 #### 5.3 Rate Limiting & Security Hardening
-- [ ] API rate limiting using Redis (`Bucket4j` library)
-- [ ] IP-based brute force protection on `/auth/login`
-- [ ] HTTPS / TLS termination via NGINX reverse proxy
-- [ ] Secrets management (move credentials out of `application.properties` → env vars / Vault)
+- [x] API rate limiting using Redis
+- [x] IP-based brute force protection on `/auth/login`
+- [x] HTTPS / TLS termination via NGINX reverse proxy
+- [x] Secrets management (move credentials out of `application.properties` → env vars / Vault)
 
 #### 5.4 Database Optimizations
-- [ ] Add indexes on `userId`, `merchantId`, `fraudVerdict`, `createdAt`
-- [ ] Add database migrations with Flyway
-- [ ] Archive old transactions (partitioning or cold storage strategy)
+- [x] Add indexes on `userId`, `merchantId`, `fraudVerdict`, `createdAt`
+- [x] Add database migrations with Flyway
+- [x] Archive old transactions (partitioning or cold storage strategy)
 
 #### 5.5 CI/CD Pipeline
-- [ ] GitHub Actions workflow:
+- [x] GitHub Actions workflow:
   - Run unit + integration tests
   - Build Docker image
   - Push to Docker Hub / GitHub Container Registry
   - Deploy to staging environment
 
 #### 5.6 API Documentation
-- [ ] Integrate Springdoc OpenAPI (Swagger UI)
+- [x] Integrate Springdoc OpenAPI (Swagger UI)
 - [ ] Document all endpoints with request/response examples
 - [ ] Export Postman collection
 
 ---
+
+## PHASE 6 - Advanced Fraud Intelligence & Analytics (PLANNED)
+
+### Goal
+Add higher-level fraud intelligence features that improve explainability, experimentation, and fraud-ring detection.
+
+### Tasks
+
+#### 6.1 Explainability Layer
+- [ ] Generate top 3 reason codes for every flagged transaction.
+- [ ] Show why a transaction was flagged: amount anomaly, velocity spike, geo-distance, new device, merchant novelty.
+- [ ] Surface explanations in transaction detail and analyst views.
+
+#### 6.2 Graph-Based Analysis
+- [ ] Build a relationship graph across users, devices, merchants, IPs, and locations.
+- [ ] Detect fraud rings and suspicious transaction chains.
+- [ ] Highlight repeated cross-entity patterns on the dashboard.
+
+#### 6.3 Model A/B Testing
+- [ ] Support two model versions in shadow or split-traffic mode.
+- [ ] Compare fraud precision, recall, and latency before rollout.
+- [ ] Promote the stronger model with controlled release logic.
+
+#### 6.4 Model Monitoring
+- [ ] Track model latency, prediction volume, and score drift.
+- [ ] Add custom metrics for false positives and prediction health.
+- [ ] Alert on unusual score distributions or service degradation.
+
+#### 6.5 Benchmarking and Load Validation
+- [ ] Generate large synthetic transaction sets for stress testing.
+- [ ] Measure throughput, latency, and error rates under load.
+- [ ] Document baseline performance numbers for the report.
+
+#### 6.6 Release Documentation
+- [ ] Write request/response examples for all public endpoints.
+- [ ] Export a Postman collection.
+- [ ] Run end-to-end smoke tests against the Docker Compose stack.
+
 
 ## 🗺️ Phase Summary
 
@@ -216,8 +254,9 @@ Make the system production-ready with full observability, alerting, rate limitin
 | **Phase 1** | Foundation, Security, Kafka Producer, Infrastructure | ✅ DONE |
 | **Phase 2** | Kafka Consumer + Rule-Based Fraud Engine + Redis Velocity | ✅ DONE |
 | **Phase 3** | ML Model (Python) + AI Scoring Integration | ✅ DONE |
-| **Phase 4** | React Frontend Dashboard + Real-time Alerts | ⏳ Planned |
-| **Phase 5** | Grafana Dashboards, CI/CD, Production Hardening | ⏳ Planned |
+| **Phase 4** | React Frontend Dashboard + Real-time Alerts | ✅ DONE |
+| **Phase 5** | Grafana Dashboards, CI/CD, Production Hardening | ⏳ In Progress |
+| **Phase 6** | Fraud Intelligence, Explainability, Graph Analytics | PLANNED |
 
 
 Commands to run this project are :
@@ -240,7 +279,3 @@ Commands to run this project are :
       npm run dev
 
       This command will  start the functioning of frontend
-
-  
-
-

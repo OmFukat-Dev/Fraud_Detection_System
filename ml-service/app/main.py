@@ -133,3 +133,7 @@ def predict(payload: PredictRequest):
         prob = 0.10
 
     return PredictResponse(fraudProbability=prob, modelVersion=MODEL_VERSION)
+
+
+
+

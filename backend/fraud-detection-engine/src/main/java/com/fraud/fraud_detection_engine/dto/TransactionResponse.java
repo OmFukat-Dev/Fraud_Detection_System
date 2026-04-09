@@ -5,6 +5,7 @@ import com.fraud.fraud_detection_engine.model.Transaction.TransactionStatus;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -24,6 +25,7 @@ public class TransactionResponse {
     private Double mlScore;
     private String mlModelVersion;
     private String triggeredRules;
+    private List<RuleResult> explanationReasons;
     private String message;
     private LocalDateTime createdAt;
 }

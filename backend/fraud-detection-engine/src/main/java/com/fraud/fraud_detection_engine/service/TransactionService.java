@@ -1,7 +1,11 @@
 package com.fraud.fraud_detection_engine.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fraud.fraud_detection_engine.dto.FraudAnalysisResult;
 import com.fraud.fraud_detection_engine.dto.FraudStatsResponse;
+import com.fraud.fraud_detection_engine.dto.RuleResult;
 import com.fraud.fraud_detection_engine.dto.TransactionRequest;
 import com.fraud.fraud_detection_engine.dto.TransactionResponse;
 import com.fraud.fraud_detection_engine.model.Transaction;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.UUID;
@@ -25,6 +30,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final KafkaProducerService kafkaProducerService;
+    private final ObjectMapper objectMapper;
 
     // ??????????????????????????????????????????????????????????????????????????
     //  Phase 1 ? Core transaction processing
@@ -48,6 +54,7 @@ public class TransactionService {
                 .status(Transaction.TransactionStatus.PENDING)
                 .fraudVerdict(Transaction.FraudVerdict.ALLOW)
                 .fraudScore(0.0)
+                .explanationReasonsJson(serializeRuleResults(Collections.emptyList()))
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
@@ -90,6 +97,7 @@ public class TransactionService {
                     transaction.setFraudScore(result.getFraudScore());
                     transaction.setFraudVerdict(result.getFraudVerdict());
                     transaction.setTriggeredRules(result.getTriggeredRulesSummary());
+                    transaction.setExplanationReasonsJson(serializeRuleResults(result.getExplanationReasons()));
                     transaction.setMlScore(result.getMlScore());
                     transaction.setMlModelVersion(result.getMlModelVersion());
                     transaction.setStatus(
@@ -188,9 +196,32 @@ public class TransactionService {
                 .mlScore(tx.getMlScore())
                 .mlModelVersion(tx.getMlModelVersion())
                 .triggeredRules(tx.getTriggeredRules())
+                .explanationReasons(deserializeRuleResults(tx.getExplanationReasonsJson()))
                 .message(message)
                 .createdAt(tx.getCreatedAt())
                 .build();
+    }
+
+    private String serializeRuleResults(List<RuleResult> results) {
+        try {
+            return objectMapper.writeValueAsString(results != null ? results : Collections.emptyList());
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialise explainability reasons: {}", e.getMessage());
+            return "[]";
+        }
+    }
+
+    private List<RuleResult> deserializeRuleResults(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<RuleResult>>() {});
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialise explainability reasons: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
     /**

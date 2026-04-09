@@ -61,6 +61,9 @@ public class Transaction {
     @Column(columnDefinition = "TEXT")
     private String triggeredRules;
 
+    @Column(name = "explanation_reasons_json", columnDefinition = "TEXT")
+    private String explanationReasonsJson;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

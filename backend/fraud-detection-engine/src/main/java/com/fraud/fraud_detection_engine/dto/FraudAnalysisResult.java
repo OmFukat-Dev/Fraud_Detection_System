@@ -57,6 +57,12 @@ public class FraudAnalysisResult {
     private List<RuleResult> ruleResults;
 
     /**
+     * Top explainability reasons used by the detail and analyst views.
+     * Usually the strongest triggered rules plus contextual signals.
+     */
+    private List<RuleResult> explanationReasons;
+
+    /**
      * Comma-separated names of all rules that were triggered.
      * Used to persist into the {@code triggered_rules} column.
      */

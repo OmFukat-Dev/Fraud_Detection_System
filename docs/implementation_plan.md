@@ -217,9 +217,9 @@ Add higher-level fraud intelligence features that improve explainability, experi
 ### Tasks
 
 #### 6.1 Explainability Layer
-- [ ] Generate top 3 reason codes for every flagged transaction.
-- [ ] Show why a transaction was flagged: amount anomaly, velocity spike, geo-distance, new device, merchant novelty.
-- [ ] Surface explanations in transaction detail and analyst views.
+- [x] Generate top 3 reason codes for every flagged transaction.
+- [x] Show why a transaction was flagged: amount anomaly, velocity spike, geo-distance, new device, merchant novelty.
+- [x] Surface explanations in transaction detail and analyst views.
 
 #### 6.2 Graph-Based Analysis
 - [ ] Build a relationship graph across users, devices, merchants, IPs, and locations.
@@ -279,3 +279,4 @@ Commands to run this project are :
       npm run dev
 
       This command will  start the functioning of frontend
+

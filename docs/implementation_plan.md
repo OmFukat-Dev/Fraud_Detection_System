@@ -222,9 +222,9 @@ Add higher-level fraud intelligence features that improve explainability, experi
 - [x] Surface explanations in transaction detail and analyst views.
 
 #### 6.2 Graph-Based Analysis
-- [ ] Build a relationship graph across users, devices, merchants, IPs, and locations.
-- [ ] Detect fraud rings and suspicious transaction chains.
-- [ ] Highlight repeated cross-entity patterns on the dashboard.
+- [x] Build a relationship graph across users, devices, merchants, IPs, and locations.
+- [x] Detect fraud rings and suspicious transaction chains.
+- [x] Highlight repeated cross-entity patterns on the dashboard.
 
 #### 6.3 Model A/B Testing
 - [ ] Support two model versions in shadow or split-traffic mode.
@@ -279,4 +279,5 @@ Commands to run this project are :
       npm run dev
 
       This command will  start the functioning of frontend
+
 
